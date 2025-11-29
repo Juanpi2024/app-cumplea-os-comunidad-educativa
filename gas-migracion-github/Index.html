@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cumpleaños CEIA</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { brand:'#1d4ed8', ink:'#0f172a', muted:'#64748b', card:'#ffffff', bg:'#f8fafc' }
+    }}}
+  </script>
+
+  <!-- Iconos -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Librerías de apoyo -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isoWeek.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+  <script>
+    dayjs.extend(dayjs_plugin_isBetween);
+    dayjs.extend(dayjs_plugin_isoWeek);
+    dayjs.extend(dayjs_plugin_customParseFormat);
+  </script>
+
+  <!-- PapaParse para CSV opcional (carga local) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu; background:#f8fafc; color:#0f172a; }
+    .card{ background:#ffffff; border:1px solid #e5e7eb; border-radius:18px; box-shadow: 0 8px 30px rgba(2,6,23,.06); }
+    .badge{ display:inline-block; padding:.25rem .6rem; border:1px solid #e2e8f0; border-radius:999px; background:#f8fafc; font-size:.75rem; color:#334155;}
+  </style>
+</head>
+<body>
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-5">
+    <!-- Encabezado -->
+    <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold">🎂 Cumpleaños CEIA</h1>
+        <p class="text-muted mt-1">Alertas del mes, la semana y próximos 3 días</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="csvInput" class="cursor-pointer px-4 py-2 rounded-xl border bg-white hover:bg-slate-50 font-semibold">📥 Cargar CSV</label>
+        <input id="csvInput" type="file" accept=".csv,text/csv" class="hidden">
+        <button id="reloadBtn" class="px-4 py-2 rounded-xl border bg-white hover:bg-slate-50 font-semibold">🔄 Recargar hoja</button>
+      </div>
+    </header>
+
+    <!-- Banner de felicitación (se muestra si hay cumpleañeros hoy) -->
+    <section id="bannerHoy" class="hidden card p-5">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">🎉</div>
+        <div>
+          <h2 class="text-xl font-extrabold">¡Feliz cumpleaños!</h2>
+          <p id="textoFelicitacion" class="mt-1"></p>
+          <p class="mt-2 text-muted">Gracias por ser parte del <strong>CEIA Juanita Zúñiga</strong>. ¡Te deseamos un día increíble! 💙</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resumen -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="card p-4">
+        <div class="text-muted text-sm">Total de registros</div>
+        <div id="kTotal" class="text-2xl font-extrabold">—</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-muted text-sm">Cumpleaños este mes</div>
+        <div id="kMes" class="text-2xl font-extrabold text-blue-700">—</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-muted text-sm">Esta semana</div>
+        <div id="kSemana" class="text-2xl font-extrabold text-emerald-700">—</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-muted text-sm">Próx. 3 días</div>
+        <div id="k3Dias" class="text-2xl font-extrabold text-orange-700">—</div>
+      </div>
+    </section>
+
+    <!-- Listas -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-extrabold">🎈 Este mes</h3>
+          <span id="tagMes" class="badge">—</span>
+        </div>
+        <ul id="listMes" class="mt-3 space-y-2 text-sm"></ul>
+      </div>
+
+      <div class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-extrabold">📅 Esta semana (lun–dom)</h3>
+          <span id="tagSemana" class="badge">—</span>
+        </div>
+        <ul id="listSemana" class="mt-3 space-y-2 text-sm"></ul>
+      </div>
+
+      <div class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-extrabold">⏳ Próximos 3 días</h3>
+          <span id="tag3Dias" class="badge">—</span>
+        </div>
+        <ul id="list3Dias" class="mt-3 space-y-2 text-sm"></ul>
+      </div>
+    </section>
+
+    <!-- Tabla base -->
+    <section class="card p-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-extrabold">📋 Base de cumpleaños</h3>
+        <div class="flex gap-2">
+          <input id="buscar" type="text" placeholder="Buscar nombre o curso…" class="px-3 py-2 rounded-xl border w-56">
+          <button id="btnLimpiar" class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50">Limpiar</button>
+        </div>
+      </div>
+      <div class="mt-3 overflow-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50">
+              <th class="text-left p-2">Nombre</th>
+              <th class="text-left p-2">Curso / Área</th>
+              <th class="text-left p-2">Nacimiento</th>
+              <th class="text-left p-2">Próx. cumpleaños</th>
+              <th class="text-right p-2">Edad (este año)</th>
+              <th class="text-right p-2">Días para</th>
+            </tr>
+          </thead>
+          <tbody id="tbody" class="divide-y"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-muted pt-2">Funciona embebido en Google Sites. Datos procesados en tu navegador.</footer>
+  </main>
+
+  <script>
+    // Estado global
+    let STATE = {
+      tz: 'America/Santiago',
+      today: null,
+      data: [] // {nombre, curso, fechaISO, anioNacimiento, dia, mes, proximoISO, edadEsteAnio, diasPara}
+    };
+
+    // Utilidades UI
+    function el(id){ return document.getElementById(id); }
+    function fmtDate(iso){ return dayjs(iso).format('DD-MM-YYYY'); }
+
+    function pintarBannerHoy(listHoy){
+      const box = el('bannerHoy');
+      if (!listHoy.length) { box.classList.add('hidden'); return; }
+      const nombres = listHoy.map(x => x.nombre).join(', ');
+      el('textoFelicitacion').innerHTML = `Hoy celebramos a <strong>${nombres}</strong>.`;
+      box.classList.remove('hidden');
+    }
+
+    function renderKPIs(arr){
+      el('kTotal').textContent  = arr.length;
+      const hoy   = dayjs(STATE.today);
+      const mes   = hoy.month(); // 0-11
+      const iniW  = hoy.startOf('isoWeek');
+      const finW  = hoy.endOf('isoWeek');
+      const tres  = hoy.add(3, 'day');
+
+      const delMes     = arr.filter(x => dayjs(x.proximoISO).year() === hoy.year() && (x.mes-1) === mes);
+      const deSemana   = arr.filter(x => dayjs(x.proximoISO).isBetween(iniW, finW, 'day', '[]'));
+      const prox3      = arr.filter(x => dayjs(x.proximoISO).isSame(hoy, 'day') || (dayjs(x.proximoISO).isAfter(hoy, 'day') && dayjs(x.proximoISO).isSameOrBefore(tres, 'day')));
+
+      el('kMes').textContent    = delMes.length;
+      el('kSemana').textContent = deSemana.length;
+      el('k3Dias').textContent  = prox3.length;
+
+      el('tagMes').textContent    = dayjs().format('MMMM YYYY');
+      el('tagSemana').textContent = `${iniW.format('DD/MM')} – ${finW.format('DD/MM')}`;
+      el('tag3Dias').textContent  = `${hoy.format('DD/MM')} → ${tres.format('DD/MM')}`;
+
+      // Listados
+      pintarLista('listMes', ordenar(delMes));
+      pintarLista('listSemana', ordenar(deSemana));
+      pintarLista('list3Dias', ordenar(prox3));
+
+      // Banner
+      const hoyList = arr.filter(x => dayjs(x.proximoISO).isSame(hoy, 'day'));
+      pintarBannerHoy(hoyList);
+    }
+
+    function ordenar(list){
+      return list.sort((a,b)=> dayjs(a.proximoISO).valueOf() - dayjs(b.proximoISO).valueOf() || a.nombre.localeCompare(b.nombre));
+    }
+
+    function pintarLista(ulId, list){
+      const ul = el(ulId);
+      ul.innerHTML = '';
+      if (!list.length) {
+        ul.innerHTML = `<li class="text-muted">— Sin registros —</li>`;
+        return;
+      }
+      for(const x of list){
+        const pill = (x.curso ? `<span class="badge ml-2">${x.curso}</span>` : '');
+        ul.insertAdjacentHTML('beforeend', `
+          <li class="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2">
+            <div><strong>${x.nombre}</strong> ${pill}</div>
+            <div class="text-right text-sm text-muted">
+              ${fmtDate(x.proximoISO)} • en ${x.diasPara} día(s)
+            </div>
+          </li>
+        `);
+      }
+    }
+
+    function pintarTabla(arr){
+      const tb = el('tbody');
+      tb.innerHTML = '';
+      for(const x of ordenar(arr)){
+        tb.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td class="p-2">${x.nombre}</td>
+            <td class="p-2">${x.curso || ''}</td>
+            <td class="p-2">${fmtDate(x.fechaISO)}</td>
+            <td class="p-2">${fmtDate(x.proximoISO)}</td>
+            <td class="p-2 text-right">${x.edadEsteAnio}</td>
+            <td class="p-2 text-right">${x.diasPara}</td>
+          </tr>
+        `);
+      }
+    }
+
+    function aplicarFiltroTexto(){
+      const q = el('buscar').value.toLowerCase();
+      const base = STATE.data;
+      if (!q) { pintarTabla(base); return; }
+      const f = base.filter(x =>
+        (x.nombre || '').toLowerCase().includes(q) ||
+        (x.curso  || '').toLowerCase().includes(q)
+      );
+      pintarTabla(f);
+    }
+
+    el('buscar').addEventListener('input', aplicarFiltroTexto);
+    el('btnLimpiar').addEventListener('click', ()=>{
+      el('buscar').value='';
+      pintarTabla(STATE.data);
+    });
+
+    // Cargar desde Google Sheet
+    function cargarDesdeSheet(){
+      google.script.run.withSuccessHandler(({tz, today, total, data})=>{
+        STATE.tz = tz; STATE.today = today; STATE.data = data;
+        el('kTotal').textContent = total;
+        renderKPIs(data);
+        pintarTabla(data);
+      }).withFailureHandler(err=>{
+        alert('Error al leer la hoja: ' + err.message);
+      }).getBirthdays({});
+    }
+
+    // CSV local (alternativa)
+    el('csvInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (res)=>{
+          // Convertimos a CSV plano para enviarlo a GAS (re-serializamos limpio)
+          const headers = res.meta.fields || Object.keys(res.data[0] || {});
+          const lines = [headers.join(',')].concat(
+            res.data.map(row => headers.map(h => (row[h] ?? '')).join(','))
+          );
+          const plainCSV = lines.join('\n');
+
+          google.script.run.withSuccessHandler(({tz, today, total, data})=>{
+            STATE.tz = tz; STATE.today = today; STATE.data = data;
+            el('kTotal').textContent = total;
+            renderKPIs(data);
+            pintarTabla(data);
+          }).withFailureHandler(err=>{
+            alert('Error al procesar CSV: ' + err.message);
+          }).getBirthdays({ csvData: plainCSV });
+        },
+        error: (err)=> alert('No se pudo leer el CSV: ' + err.message)
+      });
+    });
+
+    el('reloadBtn').addEventListener('click', cargarDesdeSheet);
+
+    // Inicio
+    cargarDesdeSheet();
+  </script>
+</body>
+</html>
