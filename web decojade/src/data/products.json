@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "name": "Árbol de Jade Clásico",
+    "price": 15.99,
+    "size": "Pequeño",
+    "careInstructions": "Luz indirecta brillante, regar cuando la tierra esté seca.",
+    "image": "/images/classic-jade.jpg"
+  },
+  {
+    "id": 2,
+    "name": "Jade Variegado 'Tricolor'",
+    "price": 24.99,
+    "size": "Mediano",
+    "careInstructions": "Luz alta para mantener la variegación, riego escaso.",
+    "image": "/images/variegated-jade.jpg"
+  },
+  {
+    "id": 3,
+    "name": "Jade Gollum",
+    "price": 18.50,
+    "size": "Pequeño",
+    "careInstructions": "Sol directo de la mañana, suelo con buen drenaje.",
+    "image": "/images/gollum-jade.jpg"
+  },
+  {
+    "id": 4,
+    "name": "Jade Atardecer",
+    "price": 35.00,
+    "size": "Grande",
+    "careInstructions": "Pleno sol para mejor color, proteger de heladas.",
+    "image": "/images/sunset-jade.jpg"
+  },
+  {
+    "id": 5,
+    "name": "Jade Dólar de Plata",
+    "price": 29.99,
+    "size": "Mediano",
+    "careInstructions": "Luz brillante, dejar secar completamente entre riegos.",
+    "image": "/images/silver-dollar-jade.jpg"
+  },
+  {
+    "id": 6,
+    "name": "Jade Hobbit",
+    "price": 12.99,
+    "size": "Pequeño",
+    "careInstructions": "Luz moderada, tolerante a la sequía.",
+    "image": "/images/hobbit-jade.jpg"
+  },
+  {
+    "id": 7,
+    "name": "Jade Belleza Rosa",
+    "price": 45.00,
+    "size": "Grande",
+    "careInstructions": "Luz brillante, riego mínimo en invierno.",
+    "image": "/images/pink-beauty-jade.jpg"
+  }
+]
