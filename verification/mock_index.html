@@ -2,9 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cumpleaños CEIA</title>
-
+  <title>MOCK Cumpleaños CEIA</title>
   <!-- Tailwind CSS (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -27,11 +25,9 @@
       }
     }
   </script>
-
   <!-- Iconos -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fredoka:wght@600&display=swap" rel="stylesheet">
-
   <!-- Librerías de apoyo -->
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
@@ -45,10 +41,8 @@
     dayjs.extend(dayjs_plugin_customParseFormat);
     dayjs.extend(dayjs_plugin_isSameOrBefore);
   </script>
-
   <!-- PapaParse para CSV opcional (carga local) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
   <style>
     body { font-family: Inter, system-ui, -apple-system, sans-serif; background-color: #fdf4ff; color: #0f172a; }
     h1, h2, h3 { family: 'Fredoka', sans-serif; }
@@ -61,6 +55,59 @@
     .btn-secondary:hover { background: #f9fafb; }
     .gradient-text { background: linear-gradient(135deg, #9333ea, #db2777); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   </style>
+  <script>
+    // MOCK GOOGLE SCRIPT RUN
+    window.google = {
+      script: {
+        run: {
+          withSuccessHandler: function(callback) {
+            return {
+              withFailureHandler: function() {
+                return {
+                  getBirthdays: function() {
+                    console.log("Mock getBirthdays called");
+                    // Generate mock data relative to today
+                    const today = dayjs();
+                    const tomorrow = today.add(1, 'day');
+
+                    const data = [
+                      {
+                        nombre: 'Juan Perez',
+                        curso: '1A',
+                        fechaISO: today.format('YYYY-MM-DD'),
+                        proximoISO: today.format('YYYY-MM-DD'),
+                        edadEsteAnio: 15,
+                        diasPara: 0,
+                        mes: today.month() + 1
+                      },
+                      {
+                        nombre: 'Maria Gomez',
+                        curso: 'Profesor',
+                        fechaISO: tomorrow.format('YYYY-MM-DD'),
+                        proximoISO: tomorrow.format('YYYY-MM-DD'),
+                        edadEsteAnio: 40,
+                        diasPara: 1,
+                        mes: tomorrow.month() + 1
+                      }
+                    ];
+
+                    setTimeout(() => {
+                        callback({
+                          tz: 'America/Santiago',
+                          today: today.format('YYYY-MM-DD'),
+                          total: data.length,
+                          data: data
+                        });
+                    }, 500);
+                  }
+                };
+              }
+            };
+          }
+        }
+      }
+    };
+  </script>
 </head>
 <body class="min-h-screen">
   <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
@@ -436,12 +483,6 @@
 
     // Cargar desde Google Sheet
     function cargarDesdeSheet(){
-      if (typeof google === 'undefined' || !google.script) {
-        console.warn('Google Script no detectado, usando datos de prueba (Preview Mode).');
-        usarDatosDePrueba();
-        return;
-      }
-
       google.script.run.withSuccessHandler(({tz, today, total, data})=>{
         STATE.tz = tz; STATE.today = today; STATE.data = data;
         el('kTotal').textContent = total;
@@ -450,64 +491,6 @@
       }).withFailureHandler(err=>{
         alert('Error al leer la hoja: ' + err.message);
       }).getBirthdays({});
-    }
-
-    function usarDatosDePrueba() {
-       // Mock Data for GitHub Pages Preview
-       const today = dayjs();
-       const tomorrow = today.add(1, 'day');
-       const nextWeek = today.add(5, 'day');
-
-       const mockData = [
-         {
-           nombre: 'Juan Perez (Ejemplo)',
-           curso: '1A',
-           fechaISO: today.format('YYYY-MM-DD'),
-           proximoISO: today.format('YYYY-MM-DD'),
-           edadEsteAnio: 15,
-           diasPara: 0,
-           mes: today.month() + 1
-         },
-         {
-           nombre: 'Maria Gomez (Ejemplo)',
-           curso: 'Profesor',
-           fechaISO: tomorrow.format('YYYY-MM-DD'),
-           proximoISO: tomorrow.format('YYYY-MM-DD'),
-           edadEsteAnio: 40,
-           diasPara: 1,
-           mes: tomorrow.month() + 1
-         },
-         {
-           nombre: 'Carlos Ruiz (Ejemplo)',
-           curso: 'Administración',
-           fechaISO: nextWeek.format('YYYY-MM-DD'),
-           proximoISO: nextWeek.format('YYYY-MM-DD'),
-           edadEsteAnio: 35,
-           diasPara: 5,
-           mes: nextWeek.month() + 1
-         }
-       ];
-
-       const response = {
-         tz: 'America/Santiago',
-         today: today.format('YYYY-MM-DD'),
-         total: mockData.length,
-         data: mockData
-       };
-
-       STATE.tz = response.tz;
-       STATE.today = response.today;
-       STATE.data = response.data;
-       el('kTotal').textContent = response.total;
-       renderKPIs(response.data);
-       pintarTabla(response.data);
-
-       // Add Banner for Preview Mode
-       const header = document.querySelector('header');
-       const banner = document.createElement('div');
-       banner.className = 'w-full bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded shadow-sm';
-       banner.innerHTML = '<p class="font-bold">⚠️ Modo Vista Previa</p><p>Estás viendo datos de ejemplo porque no hay conexión con Google Sheets.</p>';
-       header.parentNode.insertBefore(banner, header.nextSibling);
     }
 
     // CSV local

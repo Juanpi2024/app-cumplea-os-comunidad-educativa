@@ -209,7 +209,6 @@
   <script>
     // --- LÓGICA GENERAL ---
     let STATE = {
-      tz: 'America/Santiago',
       today: null,
       data: [],
       currentModalName: ''
@@ -278,9 +277,6 @@
     // --- CALENDARIO ---
     function addToCalendar(name, dateISO) {
       // dateISO es yyyy-MM-dd
-      // Google Calendar link format:
-      // https://calendar.google.com/calendar/render?action=TEMPLATE&text=Cumpleaños+de+Nombre&dates=YYYYMMDD/YYYYMMDD&details=...
-
       const d = dayjs(dateISO); // Es la fecha del próximo cumpleaños
       const start = d.format('YYYYMMDD');
       const end = d.add(1, 'day').format('YYYYMMDD');
@@ -434,113 +430,146 @@
       pintarTabla(STATE.data);
     });
 
-    // Cargar desde Google Sheet
-    function cargarDesdeSheet(){
-      if (typeof google === 'undefined' || !google.script) {
-        console.warn('Google Script no detectado, usando datos de prueba (Preview Mode).');
-        usarDatosDePrueba();
-        return;
-      }
+    // --- LÓGICA DE DATOS (CLIENT-SIDE) ---
 
-      google.script.run.withSuccessHandler(({tz, today, total, data})=>{
-        STATE.tz = tz; STATE.today = today; STATE.data = data;
-        el('kTotal').textContent = total;
-        renderKPIs(data);
-        pintarTabla(data);
-      }).withFailureHandler(err=>{
-        alert('Error al leer la hoja: ' + err.message);
-      }).getBirthdays({});
+    function procesarDatos(rawData) {
+      const now = dayjs();
+      const year = now.year();
+      const todayStr = now.format('YYYY-MM-DD');
+      
+      const rich = rawData.map(o => {
+        // Asegurar formato fecha
+        let d = dayjs(o.fecha, ["DD/MM/YYYY", "DD-MM-YYYY", "YYYY-MM-DD"]);
+        if (!d.isValid()) return null;
+
+        const yyyy = d.year();
+        const mm = d.month(); // 0-11
+        const dd = d.date();
+
+        // Próximo cumpleaños
+        let next = dayjs(new Date(year, mm, dd));
+        if (next.isBefore(now, 'day')) {
+          next = next.add(1, 'year');
+        }
+
+        const age = year - yyyy - (dayjs(new Date(year, mm, dd)).isAfter(now, 'day') ? 1 : 0);
+        const daysUntil = next.diff(now, 'day');
+
+        return {
+          nombre: o.nombre,
+          curso: o.curso,
+          fechaISO: d.format('YYYY-MM-DD'),
+          anioNacimiento: yyyy,
+          dia: dd,
+          mes: mm + 1, // 1-12 para display
+          proximoISO: next.format('YYYY-MM-DD'),
+          edadEsteAnio: age,
+          diasPara: daysUntil
+        };
+      }).filter(Boolean);
+
+      return {
+        today: todayStr,
+        data: rich
+      };
     }
 
-    function usarDatosDePrueba() {
-       // Mock Data for GitHub Pages Preview
+    function cargarDatosIniciales() {
+       // Datos de ejemplo para primera carga
        const today = dayjs();
        const tomorrow = today.add(1, 'day');
        const nextWeek = today.add(5, 'day');
 
        const mockData = [
-         {
-           nombre: 'Juan Perez (Ejemplo)',
-           curso: '1A',
-           fechaISO: today.format('YYYY-MM-DD'),
-           proximoISO: today.format('YYYY-MM-DD'),
-           edadEsteAnio: 15,
-           diasPara: 0,
-           mes: today.month() + 1
-         },
-         {
-           nombre: 'Maria Gomez (Ejemplo)',
-           curso: 'Profesor',
-           fechaISO: tomorrow.format('YYYY-MM-DD'),
-           proximoISO: tomorrow.format('YYYY-MM-DD'),
-           edadEsteAnio: 40,
-           diasPara: 1,
-           mes: tomorrow.month() + 1
-         },
-         {
-           nombre: 'Carlos Ruiz (Ejemplo)',
-           curso: 'Administración',
-           fechaISO: nextWeek.format('YYYY-MM-DD'),
-           proximoISO: nextWeek.format('YYYY-MM-DD'),
-           edadEsteAnio: 35,
-           diasPara: 5,
-           mes: nextWeek.month() + 1
-         }
+         { nombre: 'Juan Perez (Ejemplo)', curso: '1A', fecha: today.format('DD/MM/2010') },
+         { nombre: 'Maria Gomez (Ejemplo)', curso: 'Profesor', fecha: tomorrow.format('DD/MM/1985') },
+         { nombre: 'Carlos Ruiz (Ejemplo)', curso: 'Administración', fecha: nextWeek.format('DD/MM/1990') }
        ];
+       
+       const processed = procesarDatos(mockData);
+       STATE.today = processed.today;
+       STATE.data = processed.data;
+       
+       el('kTotal').textContent = STATE.data.length;
+       renderKPIs(STATE.data);
+       pintarTabla(STATE.data);
 
-       const response = {
-         tz: 'America/Santiago',
-         today: today.format('YYYY-MM-DD'),
-         total: mockData.length,
-         data: mockData
-       };
-
-       STATE.tz = response.tz;
-       STATE.today = response.today;
-       STATE.data = response.data;
-       el('kTotal').textContent = response.total;
-       renderKPIs(response.data);
-       pintarTabla(response.data);
-
-       // Add Banner for Preview Mode
+       // Banner informativo
        const header = document.querySelector('header');
-       const banner = document.createElement('div');
-       banner.className = 'w-full bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded shadow-sm';
-       banner.innerHTML = '<p class="font-bold">⚠️ Modo Vista Previa</p><p>Estás viendo datos de ejemplo porque no hay conexión con Google Sheets.</p>';
-       header.parentNode.insertBefore(banner, header.nextSibling);
+       let banner = document.getElementById('demoBanner');
+       if(!banner) {
+         banner = document.createElement('div');
+         banner.id = 'demoBanner';
+         banner.className = 'w-full bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-4 rounded shadow-sm flex justify-between items-center';
+         banner.innerHTML = `
+           <div>
+             <p class="font-bold">👋 ¡Bienvenido!</p>
+             <p class="text-sm">Carga un archivo CSV para ver tus propios datos. (Columnas: Nombre, Fecha, Curso)</p>
+           </div>
+           <button onclick="this.parentElement.remove()" class="text-blue-400 hover:text-blue-600">&times;</button>
+         `;
+         header.parentNode.insertBefore(banner, header.nextSibling);
+       }
     }
 
     // CSV local
     el('csvInput').addEventListener('change', (ev)=>{
       const file = ev.target.files?.[0];
       if (!file) return;
+      
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
         complete: (res)=>{
-          const headers = res.meta.fields || Object.keys(res.data[0] || {});
-          const lines = [headers.join(',')].concat(
-            res.data.map(row => headers.map(h => (row[h] ?? '')).join(','))
-          );
-          const plainCSV = lines.join('\n');
+          // Normalizar cabeceras
+          const data = res.data.map(row => {
+            // Buscar columnas flexiblemente
+            const keys = Object.keys(row);
+            const kNombre = keys.find(k => k.toLowerCase().includes('nombre'));
+            const kFecha = keys.find(k => k.toLowerCase().includes('fecha') || k.toLowerCase().includes('nacimiento'));
+            const kCurso = keys.find(k => k.toLowerCase().includes('curso') || k.toLowerCase().includes('cargo') || k.toLowerCase().includes('área'));
+            
+            if(!kNombre || !kFecha) return null;
+            
+            return {
+              nombre: row[kNombre],
+              fecha: row[kFecha],
+              curso: kCurso ? row[kCurso] : ''
+            };
+          }).filter(Boolean);
 
-          google.script.run.withSuccessHandler(({tz, today, total, data})=>{
-            STATE.tz = tz; STATE.today = today; STATE.data = data;
-            el('kTotal').textContent = total;
-            renderKPIs(data);
-            pintarTabla(data);
-          }).withFailureHandler(err=>{
-            alert('Error al procesar CSV: ' + err.message);
-          }).getBirthdays({ csvData: plainCSV });
+          if(data.length === 0) {
+            alert('No se encontraron columnas válidas (Nombre, Fecha) en el CSV.');
+            return;
+          }
+
+          const processed = procesarDatos(data);
+          STATE.today = processed.today;
+          STATE.data = processed.data;
+          
+          el('kTotal').textContent = STATE.data.length;
+          renderKPIs(STATE.data);
+          pintarTabla(STATE.data);
+          
+          // Ocultar banner demo si existe
+          const banner = document.getElementById('demoBanner');
+          if(banner) banner.remove();
+          
+          // Reset input
+          el('csvInput').value = '';
         },
         error: (err)=> alert('No se pudo leer el CSV: ' + err.message)
       });
     });
 
-    el('reloadBtn').addEventListener('click', cargarDesdeSheet);
+    el('reloadBtn').addEventListener('click', () => {
+        if(confirm('¿Recargar datos de ejemplo?')) {
+            cargarDatosIniciales();
+        }
+    });
 
     // Inicio
-    cargarDesdeSheet();
+    cargarDatosIniciales();
   </script>
 </body>
 </html>
